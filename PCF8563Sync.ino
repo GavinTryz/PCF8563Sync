@@ -28,7 +28,7 @@
  *    register your chip uses. This sketch does not support
  *    the serparate r/w address version of the chip.
  *  - You may think your chip has separate addresses, but
- *    use the "I2CScanner" sketch to check, as it may
+ *    use an "I2CScanner" sketch to check, as it may
  *    actually be a single-address chip.
  *    
  */

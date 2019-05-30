@@ -1,8 +1,8 @@
 /*
  * 
- *  PCF8563Sync - v1.0
+ *  PCF8563AutoSync - v1.1
  *  Code by Gavin Tryzbiak
- *  Inspiration from Paul Stoffregen's DS1307RTC Library
+ *  Some inspiration from Paul Stoffregen's DS1307RTC Library
  *  
  */
 
@@ -38,7 +38,7 @@
 
 // Constants
 #define BAUD_RATE 115200 // Match this with the number in the dropdown menu in the Serial Monitor
-#define I2C_ADDRESS 0x51
+#define I2C_ADDRESS 0x51 // See "NOTE"
 
 #define SECONDS_REGISTER 0x02 // Also includes voltage status in MSB
 #define MINUTES_REGISTER 0x03
@@ -52,8 +52,8 @@ void setup()
 {
   Serial.begin(BAUD_RATE);
   Wire.begin();
-  autoSyncTime(); // autoSyncTime() and autoSyncDay() would be merged into one function, but __TIME__ and __DATE__ interfere when placed in the same function for some reason
-  autoSyncDay();
+  autoSyncTime();
+  autoSyncDate();
   writeManualInfo();
   Serial.println(F("\nPCF8563 calibrated."));
 }
@@ -115,7 +115,7 @@ byte getCurSecond() // Returns the current second from the PCF8563, without the 
   return curSecond;
 }
 
-byte monthToValue(char *str) // Heavily inspired by Paul Stoffregen's getDate() function in SetTime
+byte monthToValue(char *str) // Accepts a 3-character representation of each month, and returns the numerical value of the month. Heavily inspired by Paul Stoffregen's getDate() function in SetTime
 {
   const char *monthNames[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
   byte monthIndex;
@@ -146,7 +146,7 @@ byte writeManualInfo() // Weekday and PCF8563 voltage cannot easily be automatic
   writeToAddress(I2C_ADDRESS, WEEKDAYS_REGISTER, DecToBCD(Serial.parseInt()));
 }
 
-void autoSyncTime()
+void autoSyncTime() // Syncronizes PCF8563 to compile time
 {
   byte curHour, curMinute, curSecond;
 
@@ -164,8 +164,8 @@ void autoSyncTime()
   
   
 }
-
-void autoSyncDay()
+// autoSyncTime() and autoSyncDate() would be combined in one function, but sscanf(__DATE__, ...) for some reason interfered with sscanf(__TIME__, ...) unless separated
+void autoSyncDate() // Syncronizes PCF8563 to compile date
 {
   byte curDay;
   char curMonth[4];
@@ -183,7 +183,7 @@ void autoSyncDay()
   writeToAddress(I2C_ADDRESS, YEARS_REGISTER, DecToBCD(curYear % 100)); // Writes the current year
 }
 
-void manualSync()
+void manualSync() // Syncronizes PCF8563 to a user-entered datetime
 {
   byte tempMonth;
   word tempYear;
@@ -218,7 +218,7 @@ void manualSync()
   Serial.println(F("\nPCF8563 calibrated."));
 }
 
-void displayDateTime()
+void displayDateTime() // Displays the current date and time on the PCF8563
 {
   byte * data = readFromAddress(I2C_ADDRESS, SECONDS_REGISTER, 7);
   Serial.print(F("\nCurrently, the PCF8563 at address 0x"));
@@ -255,11 +255,12 @@ void displayDateTime()
   if (BCDToDec(data[0] & 0b01111111) < 10)
     Serial.print('0');
   Serial.print(BCDToDec(data[0] & 0b01111111));
+  
   // Print time (12 hour format)
   Serial.print(F(" ("));
-  if (BCDToDec(data[2] & 0b00111111) < 10)
+  if (BCDToDec(data[2] & 0b00111111) < 10 && BCDToDec(data[2] & 0b00111111) != 0)
     Serial.print('0');
-  Serial.print(BCDToDec(data[2] & 0b00111111) % 12);
+  Serial.print(BCDToDec(data[2] & 0b00111111) % 12 == 0 ? 12 : (BCDToDec(data[2] & 0b00111111) % 12));
   Serial.print(':');
   if (BCDToDec(data[1] & 0b01111111) < 10)
     Serial.print('0');
@@ -278,7 +279,7 @@ void displayDateTime()
   free(data);
 }
 
-String weekdayFromValue(byte value)
+String weekdayFromValue(byte value) // Accepts a number representing a weekday, returns the name of the weekday
 {
   switch(value)
   {
@@ -301,7 +302,7 @@ String weekdayFromValue(byte value)
   }
 }
 
-String monthFromValue(byte value)
+String monthFromValue(byte value) // Accepts a number representing a month, returns the name of the month
 {
   switch(value)
   {
